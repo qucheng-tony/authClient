@@ -1,4 +1,4 @@
-package authclient
+package authClient
 
 import (
 	"bytes"
