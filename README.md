@@ -15,7 +15,7 @@ go get e.coding.net/your-team/auth-client
 ```go
 import "e.coding.net/your-team/auth-client"
 
-client := authclient.NewAuthClient("http://your-api-base-url")
+client := authclient.NewAuthClient("http://your-api-base-url", "your token")
 
 // Check interface auth
 authReq := authclient.CheckInterfaceAuthReq{
