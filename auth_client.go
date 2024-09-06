@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 )
 
 type AuthClient struct {
@@ -19,10 +21,10 @@ type Response struct {
 }
 
 type CheckInterfaceAuthReq struct {
-	Method    int8   `json:"method"`
+	Method    int8   `json:"method"` // 1、GET 2、POST 3、PUT 4、DELETE
 	Path      string `json:"path"`
 	UserID    int    `json:"user_id"`
-	ProjectID int    `json:"project_id"`
+	ProjectID int    `json:"project_id"` // 根据AUTH系统查看
 }
 
 type CheckHasPermissionReq struct {
@@ -42,7 +44,18 @@ func NewAuthClient(baseURL, token string) *AuthClient {
 }
 
 func (c *AuthClient) CheckInterfaceAuth(req CheckInterfaceAuthReq) (bool, error) {
-	return c.makeRequest("GET", "/checkInterfaceAuth", req)
+	// 构建查询参数
+	params := url.Values{}
+	params.Add("method", strconv.Itoa(int(req.Method)))
+	params.Add("path", req.Path)
+	params.Add("user_id", strconv.Itoa(req.UserID))
+	params.Add("project_id", strconv.Itoa(req.ProjectID))
+
+	// 构建完整的 URL，包括查询参数
+	fullURL := fmt.Sprintf("%s/checkInterfaceAuth?%s", c.BaseURL, params.Encode())
+
+	// 发送 GET 请求
+	return c.makeRequest("GET", fullURL, nil)
 }
 
 func (c *AuthClient) HasAnyPermission(req CheckHasPermissionReq) (bool, error) {
@@ -54,13 +67,21 @@ func (c *AuthClient) HasAnyRole(req CheckHasRoleReq) (bool, error) {
 }
 
 func (c *AuthClient) makeRequest(method, path string, payload interface{}) (bool, error) {
-	url := c.BaseURL + path
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return false, fmt.Errorf("error marshaling payload: %w", err)
+	var req *http.Request
+	var err error
+
+	if method == "GET" {
+		// 对于 GET 请求，我们已经在 URL 中包含了参数，所以这里不需要 body
+		req, err = http.NewRequest(method, path, nil)
+	} else {
+		// 对于其他方法，我们需要将 payload 编码为 JSON
+		jsonPayload, err := json.Marshal(payload)
+		if err != nil {
+			return false, fmt.Errorf("error marshaling payload: %w", err)
+		}
+		req, err = http.NewRequest(method, c.BaseURL+path, bytes.NewBuffer(jsonPayload))
 	}
 
-	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return false, fmt.Errorf("error creating request: %w", err)
 	}
